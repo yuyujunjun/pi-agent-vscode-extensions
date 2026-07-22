@@ -1,0 +1,14 @@
+{
+  "name": "pi-mode-manager",
+  "version": "1.0.0",
+  "description": "Plan/review/auto-edit mode manager for pi coding agent",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions/mode-manager.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}
