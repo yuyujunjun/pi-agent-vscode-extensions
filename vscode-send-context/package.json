@@ -1,0 +1,33 @@
+{
+  "name": "pi-send-context",
+  "displayName": "Pi Send Context",
+  "description": "Send selected code and file info from VS Code to pi coding agent",
+  "version": "1.0.0",
+  "publisher": "yuyujunjun",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pi.sendContext",
+        "title": "Pi: Send Selection to Agent"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pi.sendContext",
+        "key": "ctrl+alt+enter",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:yuyujunjun/pi-agent-vscode-extensions.git"
+  }
+}

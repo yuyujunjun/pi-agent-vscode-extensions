@@ -67,6 +67,54 @@ const FEEDBACK_INDEX = REVIEW_ITEMS.length - 1;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+const BRIDGE_FILE = join(tmpdir(), "pi-vscode-bridge.json");
+
+interface BridgeInfo {
+  url: string;
+  token: string;
+}
+
+let bridgeCache: BridgeInfo | null | undefined;
+let bridgeCacheTime = 0;
+
+function getBridgeInfo(): BridgeInfo | null {
+  // Small cache so we don't re-read the file for every review in a batch
+  if (bridgeCache !== undefined && Date.now() - bridgeCacheTime < 5000) {
+    return bridgeCache;
+  }
+  try {
+    if (!existsSync(BRIDGE_FILE)) { bridgeCache = null; return null; }
+    const raw = JSON.parse(readFileSync(BRIDGE_FILE, "utf-8"));
+    bridgeCache = { url: raw.url, token: raw.token };
+    bridgeCacheTime = Date.now();
+    return bridgeCache;
+  } catch {
+    bridgeCache = null;
+    return null;
+  }
+}
+
+async function callVSCodeBridge(method: string, params?: Record<string, unknown>): Promise<boolean> {
+  const bridge = getBridgeInfo();
+  if (!bridge) return false;
+  try {
+    const res = await fetch(`${bridge.url}/rpc`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-pi-vscode-authorization": bridge.token,
+      },
+      body: JSON.stringify({ method, params: params || {} }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return false;
+    const body = await res.json().catch(() => null);
+    return body?.result?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 function getBackupDir(): string {
   const dir = join(tmpdir(), "pi-mode-manager");
   mkdirSync(dir, { recursive: true });
@@ -354,9 +402,10 @@ export default function modeManager(pi: ExtensionAPI): void {
       }
     } finally {
       tryCleanup(backupPath);
-      // Close diff tab by opening actual file
+      // Close diff tabs in VS Code and switch back to original file
       if (!isNewFile) {
-        try { execSync(`code -g "${filePath}:1"`, { stdio: "ignore", timeout: 3000 }); } catch { /* ok */ }
+        try { execSync(`code -g "${filePath}"`, { stdio: "ignore", timeout: 3000 }); } catch { /* ok */ }
+        callVSCodeBridge("closeDiffEditors").catch(() => {});
       }
     }
   });
