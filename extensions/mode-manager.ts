@@ -400,9 +400,9 @@ export default function modeManager(pi: ExtensionAPI): void {
           ctx.ui.notify("Declined + feedback sent.", "info");
           pi.sendMessage({
             customType: "review-rejection",
-            content: `The user rejected your previous edit to "${filePath}". The change has been reverted. Follow the user's next instruction.`,
+            content: `The user rejected your previous edit to "${filePath}". The change has been reverted.\n\nUser feedback: ${result.feedback?.trim() || "(no details)"}`,
             display: true,
-          }, { deliverAs: "nextTurn" });
+          }, { deliverAs: "steer" });
           return {
             content: [{
               type: "text",
