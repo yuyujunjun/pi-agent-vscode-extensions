@@ -398,7 +398,6 @@ export default function modeManager(pi: ExtensionAPI): void {
         case "decline-feedback":
           revertEdit(backup);
           ctx.ui.notify("Declined + feedback sent.", "info");
-          ctx.abort();
           return {
             content: [{
               type: "text",
