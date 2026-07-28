@@ -398,15 +398,11 @@ export default function modeManager(pi: ExtensionAPI): void {
         case "decline-feedback":
           revertEdit(backup);
           ctx.ui.notify("Declined + feedback sent.", "info");
-          pi.sendMessage({
-            customType: "review-rejection",
-            content: `The user rejected your previous edit to "${filePath}". The change has been reverted.\n\nUser feedback: ${result.feedback?.trim() || "(no details)"}`,
-            display: true,
-          }, { deliverAs: "steer" });
+          ctx.abort();
           return {
             content: [{
               type: "text",
-              text: `❌ Edit to "${filePath}" was declined and reverted.\n\nUser feedback:\n${result.feedback?.trim() || "(no details)"}`,
+              text: `The user rejected your previous edit to "${filePath}". The change has been reverted.\n\nUser feedback: ${result.feedback?.trim() || "(no details)"}`,
             }],
             isError: true,
           };
