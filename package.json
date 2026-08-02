@@ -5,7 +5,7 @@
   "keywords": ["pi-package"],
   "license": "MIT",
   "pi": {
-    "extensions": ["./extensions/mode-manager.ts", "./extensions/vscode-bridge.ts"]
+    "extensions": ["./extensions/mode-manager.ts", "./extensions/vscode-bridge.ts", "./extensions/glm-usage-footer.ts"]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
