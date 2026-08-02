@@ -4,7 +4,7 @@ A collection of [pi](https://github.com/earendil-works/pi-mono) extensions maint
 
 - [`mode-manager`](./extensions/mode-manager.ts) — three-mode editing control (plan / review / auto-edit)
 - [`vscode-bridge`](./extensions/vscode-bridge.ts) — auto-injects the current VS Code editor context into pi
-- [`glm-usage-footer`](./extensions/glm-usage-footer.ts) — displays GLM Coding Plan quota usage in the pi footer
+- [`coding-plan-usage-footer`](./extensions/coding-plan-usage-footer.ts) — displays coding-plan quota usage (GLM, MiniMax) in the pi footer, with 5h/weekly windows and reset times
 
 ## Installation
 
@@ -68,41 +68,79 @@ The companion VS Code extension (`vscode-send-context/`) writes the current edit
 
 See `vscode-send-context/` for the VS Code side of the bridge.
 
-## glm-usage-footer
+## coding-plan-usage-footer
 
-Displays GLM Coding Plan quota usage in the pi footer, so you can see when you are approaching the 5-hour or weekly limit before the API starts returning errors.
+Displays coding-plan quota usage in the pi footer for any registered provider (currently GLM Coding Plan and MiniMax Token Plan), so you can see when you are approaching the 5-hour or weekly limit before the API starts rejecting requests.
 
 ```
-GLM lite | 5h 100% | 1w 20%
+GLM lite | 5h 65% (4h12m) | 1w 80% (5d3h)
+Minimax Plus | 5h 0% (积分计费) | 1w 100% (5d3h)
 ```
 
-Refreshes every 60 seconds. Auto-stops when the active model is not GLM (clearing the footer); auto-restarts when you switch back to a GLM model.
+Refreshes every 60 seconds. Auto-stops when the active model is not a coding-plan provider (clearing the footer); auto-restarts when you switch back to one.
+
+### What you see
+
+- **`<provider> <plan>`** — e.g., `GLM lite`, `Minimax Plus`
+- **5h** — remaining percentage and time until reset, color-coded:
+  - normal: remaining ≥ 30%
+  - warning (yellow): remaining 10–30%
+  - error (red): remaining < 10% or exhausted
+- **1w** — remaining percentage and time until weekly reset (not color-coded)
+- **Exhausted 5h** — different display per provider:
+  - GLM: `5h 0% (1h23m)` — shows reset time, since requests are rejected when exhausted
+  - MiniMax: `5h 0% (积分计费)` — usage falls back to credits, so show the mode
+- **Unlimited weekly** (MiniMax only): `1w ∞`
 
 ### Requirements
 
-- A GLM Coding Plan API key stored in `~/.pi/agent/auth.json` under the `zai-coding-cn` provider
-- The `zai-coding-cn` provider configured in `~/.pi/agent/models-store.json` (any GLM model entry is enough; the extension only reads the base URL)
+- API keys stored in `~/.pi/agent/auth.json` under each provider id (`zai-coding-cn`, `minimax-cn`, ...)
+- Each provider configured in `~/.pi/agent/models-store.json` (the extension only reads the base URL)
+- No hardcoded secrets — credentials are loaded from disk at runtime
 
 ### How it works
 
-The extension calls zai's monitor endpoint once per minute:
+The extension maintains a provider registry. When the active model's `provider` matches a registered provider, it polls that provider's quota endpoint every 60 seconds.
 
+**GLM (`zai-coding-cn`):**
 ```
 GET https://open.bigmodel.cn/api/monitor/usage/quota/limit
+Authorization: <bare-key>
 ```
-
-The response includes a `limits` array. Each entry has a `unit` field that the extension maps to:
-
+The response includes a `limits` array with a `unit` field that the extension maps to:
 - `unit=3` → 5h rolling window
 - `unit=6` → weekly window
 
 (Inferred from plan quota sizes matching the publicly documented 5h / weekly limits for the lite plan; not officially documented by zai.)
 
-If the API call fails (network error, 401, etc.) the footer shows `GLM | err: …` until the next refresh succeeds.
+**MiniMax (`minimax-cn`):**
+```
+GET https://api.minimaxi.com/v1/token_plan/remains
+Authorization: Bearer <key>
+```
+The response includes `model_remains[]` entries. The extension picks `model_name: "general"` (the LLM bucket) and reads `current_interval_*` (5h) and `current_weekly_*` (weekly) fields. `current_*_status === 3` means the window is unlimited (no cap).
 
-### Caveat
+### Caveats
 
-zai does not document what `unit=3` / `unit=6` mean, so if they ever change the encoding, the mapping will need to be updated. The extension prefers an absolute value (e.g. `2021/2000` for the 5h window) over a percentage in a future revision if the field semantics change.
+- zai does not document what `unit=3` / `unit=6` mean. If they ever change the encoding, the mapping will need to be updated.
+- MiniMax's `current_*_usage_count` fields are misleadingly named — they return **remaining** counts, not consumed. The extension uses `current_*_remaining_percent` to avoid this confusion.
+- MiniMax's weekly window is unlimited on the user's plan tier (`status: 3`), so only 5h is a hard cap. No monthly cap exists — only the 5h and weekly windows control Token Plan usage.
+
+### Adding a new provider
+
+Append to the `PROVIDERS` table in `coding-plan-usage-footer.ts`:
+
+```ts
+const PROVIDERS: Record<string, ProviderConfig> = {
+  // ...
+  "new-provider-id": {
+    displayName: "NewProvider",
+    fetchQuota: async (key, host): Promise<PlanSnapshot> => { /* ... */ },
+  },
+};
+```
+
+The default-export factory function never needs to change.
 
 ## License
 
