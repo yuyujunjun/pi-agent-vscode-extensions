@@ -325,6 +325,7 @@ export default function modeManager(pi: ExtensionAPI): void {
     backups.delete(event.toolCallId);
 
     const { filePath, backupPath, isNewFile } = backup;
+    let diffOpened = false;
 
     // If the tool itself errored, skip review — let the LLM see the error
     if (event.isError) {
@@ -336,11 +337,16 @@ export default function modeManager(pi: ExtensionAPI): void {
       // ── Open VS Code diff ──────────────────────────────────────────
       if (isNewFile) {
         ctx.ui.notify(`New file: ${filePath}`, "info");
+      } else if (!isCodeCliAvailable()) {
+        // Do not spend time invoking `code -d` when the CLI is not present.
+        // The terminal review panel remains the source of truth.
+        ctx.ui.notify("VS Code diff unavailable; continuing with terminal review.", "warning");
       } else {
         try {
           execSync(`code -d "${backupPath}" "${filePath}"`, { stdio: "ignore", timeout: 5000 });
+          diffOpened = true;
         } catch {
-          ctx.ui.notify("VS Code diff unavailable.", "warning");
+          ctx.ui.notify("VS Code diff unavailable; continuing with terminal review.", "warning");
         }
       }
 
@@ -404,7 +410,7 @@ export default function modeManager(pi: ExtensionAPI): void {
     } finally {
       tryCleanup(backupPath);
       // Close diff tabs in VS Code and switch back to original file
-      if (!isNewFile) {
+      if (diffOpened) {
         try { execSync(`code -g "${filePath}"`, { stdio: "ignore", timeout: 3000 }); } catch { /* ok */ }
         callVSCodeBridge("closeDiffEditors").catch(() => {});
       }
@@ -413,6 +419,15 @@ export default function modeManager(pi: ExtensionAPI): void {
 }
 
 // ── Utilities ───────────────────────────────────────────────────────────────
+
+function isCodeCliAvailable(): boolean {
+  try {
+    execSync("command -v code", { stdio: "ignore", timeout: 1000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function revertEdit(backup: BackupEntry): void {
   if (backup.isNewFile) {
