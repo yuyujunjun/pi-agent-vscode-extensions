@@ -4,8 +4,15 @@
  * Continuously displays coding-plan quota usage in the pi footer for any
  * registered coding-plan provider (currently GLM Coding Plan and MiniMax
  * Token Plan). Shows both the 5h rolling window and the weekly window
- * with remaining percentage and next reset time, so you can plan ahead
+ * with quota-used percentage and next reset time, so you can plan ahead
  * and avoid being cut off mid-task.
+ *
+ * Display convention: percentages are "quota used" (e.g., "1w 20%" means
+ * 20% of the weekly quota has been consumed; "5h 100%" means exhausted).
+ * This matches zai's raw `percentage` field semantics and the original
+ * glm-usage-footer behavior. Internally the snapshot models `remaining`
+ * (because "low remaining = urgent" maps cleanly to the threshold check)
+ * but `formatWindow` inverts to `used` for display.
  *
  * 5h window is color-coded based on remaining percentage:
  *   - ≥ 30% remaining → normal
@@ -100,13 +107,18 @@ const formatWindow = (
   const resetStr =
     state.resetAt > 0 ? `(${formatRelativeTime(state.resetAt - now)})` : "(?)";
 
+  // Display as "used" percentage (matches zai's `percentage` field).
+  // Internally we model `remaining` so the threshold check ("low remaining
+  // = urgent") is straightforward; invert here for display.
+  const usedPct = state.remaining <= 0 ? 100 : 100 - state.remaining;
+
   if (state.remaining <= 0) {
     // Exhausted. Display differs by provider (see file header).
-    if (isMinimax) return `${label} 0% (积分计费)`;
-    return `${label} 0% ${resetStr}`;
+    if (isMinimax) return `${label} ${usedPct}% (积分计费)`;
+    return `${label} ${usedPct}% ${resetStr}`;
   }
 
-  return `${label} ${state.remaining}% ${resetStr}`;
+  return `${label} ${usedPct}% ${resetStr}`;
 };
 
 const format = (
@@ -202,9 +214,11 @@ const fetchJson = (
 //
 // Note on the percentage field
 // ----------------------------
-// zai's `percentage` field is "percentage of quota used" (0..100), so the
-// remaining percentage we display is `100 - percentage`. This is the
-// opposite convention from MiniMax's API.
+// zai's `percentage` field is "percentage of quota used" (0..100). We
+// store it internally as `remaining = 100 - percentage` (so the threshold
+// check below is straightforward) and invert again in `formatWindow` for
+// display, so users see "20% used" instead of "80% remaining". This
+// matches the original glm-usage-footer behavior.
 
 async function fetchGlmQuota(
   key: string,

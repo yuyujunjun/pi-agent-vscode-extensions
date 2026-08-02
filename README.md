@@ -73,23 +73,25 @@ See `vscode-send-context/` for the VS Code side of the bridge.
 Displays coding-plan quota usage in the pi footer for any registered provider (currently GLM Coding Plan and MiniMax Token Plan), so you can see when you are approaching the 5-hour or weekly limit before the API starts rejecting requests.
 
 ```
-GLM lite | 5h 65% (4h12m) | 1w 80% (5d3h)
-Minimax Plus | 5h 0% (积分计费) | 1w 100% (5d3h)
+GLM lite | 5h 35% (4h12m) | 1w 20% (5d3h)
+Minimax Plus | 5h 100% (积分计费) | 1w ∞
 ```
+
+Display convention: percentages are **quota used** (e.g., "1w 20%" means 20% of the weekly quota has been consumed). Lower is better; 100% means exhausted. This matches zai's raw `percentage` field and the original glm-usage-footer output.
 
 Refreshes every 60 seconds. Auto-stops when the active model is not a coding-plan provider (clearing the footer); auto-restarts when you switch back to one.
 
 ### What you see
 
 - **`<provider> <plan>`** — e.g., `GLM lite`, `Minimax Plus`
-- **5h** — remaining percentage and time until reset, color-coded:
-  - normal: remaining ≥ 30%
-  - warning (yellow): remaining 10–30%
-  - error (red): remaining < 10% or exhausted
-- **1w** — remaining percentage and time until weekly reset (not color-coded)
+- **5h** — quota-used percentage and time until reset, color-coded:
+  - normal: used < 70%
+  - warning (yellow): used 70–90%
+  - error (red): used > 90% or exhausted
+- **1w** — quota-used percentage and time until weekly reset (not color-coded)
 - **Exhausted 5h** — different display per provider:
-  - GLM: `5h 0% (1h23m)` — shows reset time, since requests are rejected when exhausted
-  - MiniMax: `5h 0% (积分计费)` — usage falls back to credits, so show the mode
+  - GLM: `5h 100% (1h23m)` — shows reset time, since requests are rejected when exhausted
+  - MiniMax: `5h 100% (积分计费)` — usage falls back to credits, so show the mode
 - **Unlimited weekly** (MiniMax only): `1w ∞`
 
 ### Requirements
