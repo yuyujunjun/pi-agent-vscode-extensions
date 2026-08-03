@@ -38,15 +38,17 @@
  * The extension stores no API keys; all credentials are read from disk
  * at runtime.
  */
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import { request as httpsRequest } from "node:https";
 import { join } from "node:path";
 
 const REFRESH_MS = 60_000;
-const HOME = process.env.HOME ?? "/home/tangx0b";
-const PI_AUTH = join(HOME, ".pi/agent/auth.json");
-const PI_STORE = join(HOME, ".pi/agent/models-store.json");
+// Use pi's own config path resolution. This is cross-platform (pi uses
+// os.homedir() internally, so it works on Windows / macOS / Linux), honors
+// the PI_AGENT_DIR env override, and avoids hardcoding any username.
+const PI_AUTH = join(getAgentDir(), "auth.json");
+const PI_STORE = join(getAgentDir(), "models-store.json");
 const STATUS_KEY = "coding-plan";
 
 type Auth = Record<string, { type: string; key: string }>;
